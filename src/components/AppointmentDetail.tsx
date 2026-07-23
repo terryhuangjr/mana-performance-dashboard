@@ -54,7 +54,10 @@ export default function AppointmentDetail({ appointment, onClose, onPatientClick
       .delete()
       .eq('id', appointment.id);
     setDeleting(false);
-    if (!error) { onSaved(); onClose(); }
+    if (!error) {
+      onSaved();
+      setTimeout(() => onClose(), 50);
+    }
   }
 
   return (
