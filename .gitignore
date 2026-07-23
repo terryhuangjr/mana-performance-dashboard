@@ -24,3 +24,7 @@ dist-ssr
 *.sw?
 .env
 .vercel
+unsloth_compiled_cache/
+dist/
+.env
+node_modules/
