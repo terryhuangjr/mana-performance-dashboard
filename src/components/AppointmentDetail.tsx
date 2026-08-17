@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 interface Appointment {
   id: string;
   patient_name: string;
+  patient_code?: string | null;
   appointment_type: string;
   appointment_date: string;
   appointment_time: string;
@@ -70,10 +71,10 @@ export default function AppointmentDetail({ appointment, onClose, onPatientClick
           <div style={{ marginBottom: 12 }}>
             <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--gray-400)', marginBottom: 2, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Patient</div>
             <span
-              onClick={() => { onPatientClick(appointment.patient_name || ''); onClose(); }}
+              onClick={() => { onPatientClick(appointment.patient_code || appointment.patient_name || ''); onClose(); }}
               style={{ fontSize: 18, fontWeight: 700, color: 'var(--blue-600)', cursor: 'pointer' }}
             >
-              {appointment.patient_name || 'Unknown'} →
+              {appointment.patient_code || appointment.patient_name || 'Unknown'} →
             </span>
           </div>
 

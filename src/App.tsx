@@ -3,14 +3,16 @@ import SchedulePage from './pages/SchedulePage';
 import PipelinePage from './pages/PipelinePage';
 import TasksPage from './pages/TasksPage';
 import AnalyticsPage from './pages/AnalyticsPage';
+import LedgerPage from './pages/LedgerPage';
 
-type Tab = 'schedule' | 'pipeline' | 'tasks' | 'analytics';
+type Tab = 'schedule' | 'pipeline' | 'tasks' | 'analytics' | 'ledger';
 
 const NAV_ITEMS: { key: Tab; label: string }[] = [
   { key: 'schedule', label: 'Schedule' },
   { key: 'pipeline', label: 'Pipeline' },
   { key: 'tasks', label: 'Tasks' },
   { key: 'analytics', label: 'Analytics' },
+  { key: 'ledger', label: 'Value Ledger' },
 ];
 
 export default function App() {
@@ -59,6 +61,7 @@ export default function App() {
         {activeTab === 'pipeline' && <PipelinePage />}
         {activeTab === 'tasks' && <TasksPage />}
         {activeTab === 'analytics' && <AnalyticsPage />}
+        {activeTab === 'ledger' && <LedgerPage />}
       </main>
     </div>
   );

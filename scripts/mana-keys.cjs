@@ -181,6 +181,30 @@ async function backfillCodes() {
     }
     console.log(`${table}: done`);
   }
+
+  // mana_pipeline uses first_name + last_initial instead of patient_name
+  {
+    const { data: rows, error: err } = await supabase.from('mana_pipeline').select('id, first_name, last_initial');
+    if (err) { console.error(`mana_pipeline: ${err.message}`); }
+    else for (const row of rows || []) {
+      const name = [row.first_name, row.last_initial].filter(Boolean).join(' ').trim();
+      if (!name) continue;
+      const code = codeForName(name);
+      if (!code) {
+        // try just first_name (pipeline may lack last initial)
+        const code2 = codeForName(row.first_name);
+        if (!code2) { console.warn(`mana_pipeline ${row.id}: no code for "${name}"`); continue; }
+        const { error: upErr } = await supabase.from('mana_pipeline').update({ patient_code: code2 }).eq('id', row.id);
+        if (upErr) rlsBlocked.push({ table: 'mana_pipeline', id: row.id, code: code2 });
+        else updated++;
+      } else {
+        const { error: upErr } = await supabase.from('mana_pipeline').update({ patient_code: code }).eq('id', row.id);
+        if (upErr) rlsBlocked.push({ table: 'mana_pipeline', id: row.id, code });
+        else updated++;
+      }
+    }
+    console.log('mana_pipeline: done');
+  }
   if (rlsBlocked.length) {
     console.log(`\nRLS_BLOCKED=${rlsBlocked.length} (need service-role pass)`);
     for (const b of rlsBlocked) console.log(`BLOCKED\t${b.table}\t${b.id}\t${b.code}`);

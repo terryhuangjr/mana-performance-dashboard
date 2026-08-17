@@ -8,6 +8,7 @@ import AddEventModal from '../components/AddEventModal';
 interface Appointment {
   id: string;
   patient_name: string;
+  patient_code?: string | null;
   appointment_type: string;
   appointment_date: string;
   appointment_time: string;
@@ -257,7 +258,7 @@ export default function SchedulePage() {
                           opacity: appt.status === 'cancelled' ? 0.5 : 1,
                         }}>
                           <div style={{ fontWeight: 600, color: 'var(--gray-800)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {appt.patient_name}
+                            {appt.patient_code || appt.patient_name || 'Unknown'}
                           </div>
                           <div style={{ color: 'var(--gray-500)' }}>
                             {appt.appointment_time?.substring(0, 5)}
