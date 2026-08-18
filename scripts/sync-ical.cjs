@@ -133,6 +133,28 @@ async function sync() {
       if (!event.dtstart) inserted++;
       updated++;
     }
+
+    // ── Pipeline auto-feed (gap fix): ensure this patient has a pipeline row.
+    // Dedupe by patient_code — create only if not already present. No PHI at rest.
+    if (patientCode) {
+      const { data: existingPipe } = await supabase
+        .from('mana_pipeline')
+        .select('id')
+        .eq('patient_code', patientCode)
+        .limit(1);
+      if (!existingPipe || existingPipe.length === 0) {
+        const d = appointmentDate ? new Date(appointmentDate) : null;
+        const { error: pipeErr } = await supabase.from('mana_pipeline').insert({
+          patient_code: patientCode,
+          eval_date: d ? d.toISOString().split('T')[0] : null,
+          month: d ? d.getMonth() + 1 : null,
+          year: d ? d.getFullYear() : null,
+          notes: 'Auto-created from Jane booking',
+        });
+        if (pipeErr) console.error(`Pipeline feed ${patientCode}: ${pipeErr.message}`);
+        else console.log(`Pipeline: created row for ${patientCode}`);
+      }
+    }
   }
 
   // ── Cleanup: remove ical rows within the feed's date window that are no longer in the feed ──
