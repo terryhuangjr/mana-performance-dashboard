@@ -107,10 +107,13 @@ export default function PipelinePage() {
         updates = { contacted: true, needs_followup: true, converted: null, program: null };
         break;
       case 'converted':
-        updates = { contacted: true, needs_followup: false, converted: true };
+        // Stamp current month/year so a resolved card always shows on the
+        // selected-month board (resolved fetch is month-scoped; without this,
+        // resolving an older-cohort card makes it vanish from view).
+        updates = { contacted: true, needs_followup: false, converted: true, month: now.getMonth() + 1, year: now.getFullYear() };
         break;
       case 'declined':
-        updates = { contacted: true, needs_followup: false, converted: false, program: null };
+        updates = { contacted: true, needs_followup: false, converted: false, program: null, month: now.getMonth() + 1, year: now.getFullYear() };
         break;
     }
     const { error } = await supabase.from('mana_pipeline').update(updates).eq('id', id);
