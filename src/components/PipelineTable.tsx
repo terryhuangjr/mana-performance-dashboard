@@ -1,5 +1,6 @@
 interface Entry {
   id: string;
+  patient_code?: string | null;
   first_name: string;
   last_initial: string;
   eval_date: string;
@@ -121,7 +122,7 @@ export default function PipelineTable({ entries, readOnly, onToggleContacted, on
             <span style={{ color: 'var(--gray-500)', fontSize: 12 }}>{fmtDate(entry.eval_date)}</span>
 
             <span style={{ fontWeight: 600, color: 'var(--gray-800)' }}>
-              {entry.first_name} {entry.last_initial}.
+              {entry.patient_code || `${entry.first_name} ${entry.last_initial}.`}
             </span>
 
             {/* Contacted — checkbox */}

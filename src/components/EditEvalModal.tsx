@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 
 interface Entry {
   id: string;
+  patient_code?: string | null;
   first_name: string;
   last_initial: string;
   eval_date: string;
@@ -22,24 +23,32 @@ interface Props {
 const PROGRAMS = ['MANA 6','MANA 10','MANA 20','BK Weekly','BK Bi-Weekly','BK Monthly','NAHL Weekly','NAHL Bi-Weekly','NAHL Monthly','Cobblestone'];
 
 export default function EditEvalModal({ entry, onClose, onSaved }: Props) {
-  const [firstName, setFirstName] = useState(entry.first_name);
-  const [lastInitial, setLastInitial] = useState(entry.last_initial);
+  const hasCode = !!entry.patient_code;
+  const [firstName, setFirstName] = useState(entry.first_name || '');
+  const [lastInitial, setLastInitial] = useState(entry.last_initial || '');
   const [notes, setNotes] = useState(entry.notes || '');
   const [program, setProgram] = useState(entry.program || '');
   const [saving, setSaving] = useState(false);
 
+  const identity = entry.patient_code || `${entry.first_name || ''} ${entry.last_initial || ''}.`.trim();
+
   async function handleSave() {
-    if (!firstName.trim() || !lastInitial.trim()) return;
+    if (!hasCode && (!firstName.trim() || !lastInitial.trim())) return;
     setSaving(true);
+
+    const updates: any = {
+      notes: notes.trim() || null,
+      program: program || null,
+    };
+    // PHI tokenization: never write names back for code-identified entries
+    if (!hasCode) {
+      updates.first_name = firstName.trim();
+      updates.last_initial = lastInitial.trim().charAt(0).toUpperCase();
+    }
 
     const { error } = await supabase
       .from('mana_pipeline')
-      .update({
-        first_name: firstName.trim(),
-        last_initial: lastInitial.trim().charAt(0).toUpperCase(),
-        notes: notes.trim() || null,
-        program: program || null,
-      })
+      .update(updates)
       .eq('id', entry.id);
 
     setSaving(false);
@@ -53,17 +62,26 @@ export default function EditEvalModal({ entry, onClose, onSaved }: Props) {
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 460 }}>
-        <h3>Edit Eval — {entry.first_name} {entry.last_initial}.</h3>
+        <h3>Edit Eval — {identity}</h3>
 
-        <div className="form-group">
-          <label>First Name</label>
-          <input className="input" value={firstName} onChange={e => setFirstName(e.target.value)} />
-        </div>
+        {hasCode ? (
+          <div className="form-group">
+            <label>Patient</label>
+            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--gray-800)' }}>{entry.patient_code}</div>
+          </div>
+        ) : (
+          <>
+            <div className="form-group">
+              <label>First Name</label>
+              <input className="input" value={firstName} onChange={e => setFirstName(e.target.value)} />
+            </div>
 
-        <div className="form-group">
-          <label>Last Initial</label>
-          <input className="input" value={lastInitial} onChange={e => setLastInitial(e.target.value.toUpperCase().slice(0,1))} maxLength={1} style={{ width: 60, textAlign: 'center', fontSize: 16, fontWeight: 700 }} />
-        </div>
+            <div className="form-group">
+              <label>Last Initial</label>
+              <input className="input" value={lastInitial} onChange={e => setLastInitial(e.target.value.toUpperCase().slice(0,1))} maxLength={1} style={{ width: 60, textAlign: 'center', fontSize: 16, fontWeight: 700 }} />
+            </div>
+          </>
+        )}
 
         <div className="form-group">
           <label>Program</label>
@@ -81,7 +99,7 @@ export default function EditEvalModal({ entry, onClose, onSaved }: Props) {
 
         <div className="modal-actions">
           <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary" onClick={handleSave} disabled={!firstName.trim() || !lastInitial.trim() || saving}>
+          <button className="btn btn-primary" onClick={handleSave} disabled={(!hasCode && (!firstName.trim() || !lastInitial.trim())) || saving}>
             {saving ? 'Saving...' : 'Save Changes'}
           </button>
         </div>

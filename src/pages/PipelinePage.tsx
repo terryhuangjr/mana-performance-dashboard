@@ -2,11 +2,14 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import HeaderStats from '../components/HeaderStats';
 import PipelineTable from '../components/PipelineTable';
+import PipelineBoard from '../components/PipelineBoard';
+import type { StageKey } from '../components/PipelineBoard';
 import AddEvalModal from '../components/AddEvalModal';
 import EditEvalModal from '../components/EditEvalModal';
 
 interface PipelineEntry {
   id: string;
+  patient_code?: string | null;
   first_name: string;
   last_initial: string;
   eval_date: string;
@@ -48,6 +51,7 @@ export default function PipelinePage() {
   const [currentYear, setCurrentYear] = useState(now.getFullYear());
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingEntry, setEditingEntry] = useState<PipelineEntry | null>(null);
+  const [view, setView] = useState<'table' | 'board'>('board');
 
   const isCurrentMonth = currentMonth === now.getMonth() + 1 && currentYear === now.getFullYear();
   const isFuture = currentYear > now.getFullYear() || (currentYear === now.getFullYear() && currentMonth > now.getMonth() + 1);
@@ -100,6 +104,31 @@ export default function PipelinePage() {
     fetchPipeline();
   }
 
+  /** Board drag → stage field write. Clears program whenever a card leaves converted. */
+  async function updateStage(id: string, stage: StageKey) {
+    let updates: any;
+    switch (stage) {
+      case 'new':
+        updates = { contacted: false, needs_followup: false, converted: null, program: null };
+        break;
+      case 'contacted-pending':
+        updates = { contacted: true, needs_followup: false, converted: null, program: null };
+        break;
+      case 'followup':
+        updates = { contacted: true, needs_followup: true, converted: null, program: null };
+        break;
+      case 'converted':
+        updates = { contacted: true, needs_followup: false, converted: true };
+        break;
+      case 'declined':
+        updates = { contacted: true, needs_followup: false, converted: false, program: null };
+        break;
+    }
+    const { error } = await supabase.from('mana_pipeline').update(updates).eq('id', id);
+    if (error) console.error('Stage update failed:', error);
+    fetchPipeline();
+  }
+
   // Sort entries by pipeline stage, then by eval date within stage
   const sortedEntries = [...entries].sort((a, b) => {
     const daysA = Math.floor((Date.now() - new Date(a.eval_date + 'T12:00:00').getTime()) / 86400000);
@@ -125,9 +154,10 @@ export default function PipelinePage() {
 
   const totalEvals = entries.length;
   const convertedCount = entries.filter(e => e.converted === true).length;
-  const newCount = entries.filter(e => !e.contacted).length;
+  const daysFor = (e: PipelineEntry) => Math.floor((Date.now() - new Date(e.eval_date + 'T12:00:00').getTime()) / 86400000);
+  const newCount = entries.filter(e => getPipelineStage(e, daysFor(e)) === 'new').length;
   const conversionRate = totalEvals > 0 ? Math.round((convertedCount / totalEvals) * 100) : 0;
-  const needsFollowup = entries.filter(e => e.converted !== true && e.needs_followup).length;
+  const needsFollowup = entries.filter(e => getPipelineStage(e, daysFor(e)) === 'followup').length;
 
   function navigateMonth(dir: number) {
     let m = currentMonth + dir;
@@ -163,7 +193,12 @@ export default function PipelinePage() {
           <button className="btn btn-ghost btn-sm" onClick={() => navigateMonth(1)} disabled={isFuture && currentMonth >= now.getMonth() + 1 && currentYear >= now.getFullYear()}>→</button>
         </div>
 
-        <div style={{ display: 'flex', gap: 4 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <div className="view-toggle" style={{ display: 'flex', gap: 4 }}>
+            <button className={`btn btn-sm ${view === 'board' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setView('board')}>Board</button>
+            <button className={`btn btn-sm ${view === 'table' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setView('table')}>Table</button>
+          </div>
+          <div style={{ display: 'flex', gap: 4 }}>
           {([
             { key: 'all' as FilterType, label: 'All' },
             { key: 'new' as FilterType, label: 'New' },
@@ -175,6 +210,7 @@ export default function PipelinePage() {
               {f.label}
             </button>
           ))}
+          </div>
         </div>
       </div>
 
@@ -185,6 +221,16 @@ export default function PipelinePage() {
           <h3>No evals found</h3>
           <p>{isReadOnly ? 'No data for this month.' : 'Add your first eval to start tracking.'}</p>
         </div>
+      ) : view === 'board' ? (
+        <PipelineBoard
+          entries={filteredEntries}
+          readOnly={isReadOnly}
+          onMove={async (entry, stage) => {
+            await updateStage(entry.id, stage);
+            if (stage === 'converted') setEditingEntry(entry);
+          }}
+          onOpen={(entry) => setEditingEntry(entry)}
+        />
       ) : (
         <PipelineTable
           entries={filteredEntries}
