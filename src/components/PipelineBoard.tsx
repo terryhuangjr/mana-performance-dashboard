@@ -22,10 +22,19 @@ const COLUMNS: { key: StageKey; label: string }[] = [
   { key: 'declined', label: 'Declined' },
 ];
 
-export function getStage(entry: BoardEntry, days: number): StageKey {
+const STAGE_INFO: Record<StageKey, string> = {
+  'new': 'Client had their eval/first booking and hasn\'t been pitched yet. Goal: reach out with the plan + pricing. The card turns red as days since eval pass (8d+).',
+  'contacted-pending': 'Russ reached out with the plan/pricing — waiting on the client\'s decision. If no reply after 7 days, the card auto-moves to Follow-up.',
+  'followup': 'Needs another nudge. Auto-escalates by time since first contact: Follow-up 1 (7-13d, amber) → Follow-up 2 (14-20d, orange) → Final attempt (21d+, red pulse). Can be flagged manually anytime.',
+  'converted': 'Client signed up — program assigned. They graduate from the pipeline here.',
+  'declined': 'Client said no or didn\'t move forward. Funnel closed.',
+};
+
+export function getStage(entry: BoardEntry, _days: number): StageKey {
   if (entry.converted === true) return 'converted';
   if (entry.converted === false) return 'declined';
-  if (entry.needs_followup || days >= 8) return 'followup';
+  if (entry.needs_followup) return 'followup';
+  if (entry.contacted && entry.contacted_at && daysSince(entry.contacted_at.slice(0, 10)) >= 7) return 'followup';
   if (entry.contacted) return 'contacted-pending';
   return 'new';
 }
@@ -37,17 +46,31 @@ interface ColumnProps {
   entries: BoardEntry[];
   readOnly: boolean;
   onOpen: (entry: BoardEntry) => void;
+  infoOpen: boolean;
+  onInfoToggle: (key: StageKey) => void;
 }
 
-function BoardColumn({ colKey, label, dot, entries, readOnly, onOpen }: ColumnProps) {
+function BoardColumn({ colKey, label, dot, entries, readOnly, onOpen, infoOpen, onInfoToggle }: ColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: colKey, disabled: readOnly });
   return (
     <div ref={setNodeRef} className={`board-column ${isOver ? 'drag-over' : ''}`}>
+      {infoOpen && <div className="stage-info-backdrop" onClick={() => onInfoToggle(colKey)} />}
       <div className="board-column-header">
         <span className="stage-dot" style={{ background: dot }} />
         <span className="board-column-label">{label}</span>
         <span className="count-pill">{entries.length}</span>
+        <button
+          className="stage-info-btn"
+          onClick={e => { e.stopPropagation(); onInfoToggle(colKey); }}
+          title="What does this stage mean?"
+          aria-label={`Info about ${label}`}
+        >i</button>
       </div>
+      {infoOpen && (
+        <div className="stage-info-popover" onClick={e => e.stopPropagation()}>
+          {STAGE_INFO[colKey]}
+        </div>
+      )}
       <div className="board-column-body">
         <SortableContext items={entries.map(e => e.id)} strategy={verticalListSortingStrategy}>
           {entries.length === 0 ? (
@@ -73,6 +96,7 @@ interface Props {
 export default function PipelineBoard({ entries, readOnly, onMove, onOpen }: Props) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
   const [activeEntry, setActiveEntry] = useState<BoardEntry | null>(null);
+  const [infoStage, setInfoStage] = useState<StageKey | null>(null);
 
   const grouped = useMemo(() => {
     const g: Record<StageKey, BoardEntry[]> = {
@@ -120,6 +144,8 @@ export default function PipelineBoard({ entries, readOnly, onMove, onOpen }: Pro
             entries={grouped[col.key]}
             readOnly={readOnly}
             onOpen={onOpen}
+            infoOpen={infoStage === col.key}
+            onInfoToggle={(key) => setInfoStage(infoStage === key ? null : key)}
           />
         ))}
         <DragOverlay>

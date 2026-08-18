@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import HeaderStats from '../components/HeaderStats';
-import PipelineTable from '../components/PipelineTable';
 import PipelineBoard from '../components/PipelineBoard';
 import type { StageKey } from '../components/PipelineBoard';
 import AddEvalModal from '../components/AddEvalModal';
@@ -14,6 +13,7 @@ interface PipelineEntry {
   last_initial: string;
   eval_date: string;
   contacted: boolean;
+  contacted_at?: string | null;
   converted: boolean | null;
   program: string | null;
   notes: string | null;
@@ -26,10 +26,14 @@ type FilterType = 'all' | 'new' | 'contacted' | 'followup' | 'converted' | 'not-
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-function getPipelineStage(e: PipelineEntry, daysSince: number): string {
+function getPipelineStage(e: PipelineEntry, _daysSince: number): string {
   if (e.converted === true) return 'converted';
   if (e.converted === false) return 'declined';
-  if (e.needs_followup || daysSince >= 8) return 'followup';
+  if (e.needs_followup) return 'followup';
+  if (e.contacted && e.contacted_at) {
+    const d = Math.floor((Date.now() - new Date(e.contacted_at.slice(0, 10) + 'T12:00:00').getTime()) / 86400000);
+    if (d >= 7) return 'followup';
+  }
   if (e.contacted) return 'contacted-pending';
   return 'new';
 }
@@ -51,7 +55,6 @@ export default function PipelinePage() {
   const [currentYear, setCurrentYear] = useState(now.getFullYear());
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingEntry, setEditingEntry] = useState<PipelineEntry | null>(null);
-  const [view, setView] = useState<'table' | 'board'>('board');
 
   const isCurrentMonth = currentMonth === now.getMonth() + 1 && currentYear === now.getFullYear();
   const isFuture = currentYear > now.getFullYear() || (currentYear === now.getFullYear() && currentMonth > now.getMonth() + 1);
@@ -78,41 +81,15 @@ export default function PipelinePage() {
     }
   }
 
-  async function toggleContacted(id: string, current: boolean) {
-    await supabase.from('mana_pipeline').update({ contacted: !current }).eq('id', id);
-    fetchPipeline();
-  }
-
-  async function toggleConverted(id: string, current: boolean | null) {
-    let newVal: boolean | null;
-    if (current === null) newVal = true;
-    else if (current === true) newVal = false;
-    else newVal = null;
-    const updates: any = { converted: newVal };
-    if (newVal !== true) updates.program = null;
-    await supabase.from('mana_pipeline').update(updates).eq('id', id);
-    fetchPipeline();
-  }
-
-  async function updateProgram(id: string, program: string | null) {
-    await supabase.from('mana_pipeline').update({ program }).eq('id', id);
-    fetchPipeline();
-  }
-
-  async function toggleFollowup(id: string, current: boolean) {
-    await supabase.from('mana_pipeline').update({ needs_followup: !current }).eq('id', id);
-    fetchPipeline();
-  }
-
   /** Board drag → stage field write. Clears program whenever a card leaves converted. */
   async function updateStage(id: string, stage: StageKey) {
     let updates: any;
     switch (stage) {
       case 'new':
-        updates = { contacted: false, needs_followup: false, converted: null, program: null };
+        updates = { contacted: false, needs_followup: false, converted: null, program: null, contacted_at: null };
         break;
       case 'contacted-pending':
-        updates = { contacted: true, needs_followup: false, converted: null, program: null };
+        updates = { contacted: true, needs_followup: false, converted: null, program: null, contacted_at: new Date().toISOString() };
         break;
       case 'followup':
         updates = { contacted: true, needs_followup: true, converted: null, program: null };
@@ -193,12 +170,7 @@ export default function PipelinePage() {
           <button className="btn btn-ghost btn-sm" onClick={() => navigateMonth(1)} disabled={isFuture && currentMonth >= now.getMonth() + 1 && currentYear >= now.getFullYear()}>→</button>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <div className="view-toggle" style={{ display: 'flex', gap: 4 }}>
-            <button className={`btn btn-sm ${view === 'board' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setView('board')}>Board</button>
-            <button className={`btn btn-sm ${view === 'table' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setView('table')}>Table</button>
-          </div>
-          <div style={{ display: 'flex', gap: 4 }}>
+        <div style={{ display: 'flex', gap: 4 }}>
           {([
             { key: 'all' as FilterType, label: 'All' },
             { key: 'new' as FilterType, label: 'New' },
@@ -210,7 +182,6 @@ export default function PipelinePage() {
               {f.label}
             </button>
           ))}
-          </div>
         </div>
       </div>
 
@@ -221,7 +192,7 @@ export default function PipelinePage() {
           <h3>No evals found</h3>
           <p>{isReadOnly ? 'No data for this month.' : 'Add your first eval to start tracking.'}</p>
         </div>
-      ) : view === 'board' ? (
+      ) : (
         <PipelineBoard
           entries={filteredEntries}
           readOnly={isReadOnly}
@@ -230,16 +201,6 @@ export default function PipelinePage() {
             if (stage === 'converted') setEditingEntry(entry);
           }}
           onOpen={(entry) => setEditingEntry(entry)}
-        />
-      ) : (
-        <PipelineTable
-          entries={filteredEntries}
-          readOnly={isReadOnly}
-          onToggleContacted={toggleContacted}
-          onToggleConverted={toggleConverted}
-          onUpdateProgram={updateProgram}
-          onToggleFollowup={toggleFollowup}
-          onRowClick={(entry: any) => setEditingEntry(entry)}
         />
       )}
 

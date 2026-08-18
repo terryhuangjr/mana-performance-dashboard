@@ -823,3 +823,66 @@ select.input {
   .board-column-body { max-height: 60vh; }
   .board-wrap { padding-bottom: 16px; }
 }
+
+/* ───── FOLLOW-UP ESCALATION TIERS ───── */
+.tier-pill {
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 99px;
+  padding: 1px 7px;
+}
+.tier-pill.tier-1 { background: #FEF3C7; color: #92400E; }
+.tier-pill.tier-2 { background: #FFEDD5; color: #C2410C; }
+.tier-pill.tier-final { background: #FEE2E2; color: #991B1B; animation: pulse-red 1.6s infinite; }
+
+/* ───── STAGE INFO (i) BUTTON + POPOVER ───── */
+.stage-info-btn {
+  margin-left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid var(--gray-300);
+  background: var(--white);
+  color: var(--gray-500);
+  font-size: 11px;
+  font-weight: 700;
+  font-style: italic;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  flex: 0 0 auto;
+  transition: all 0.12s;
+}
+.stage-info-btn:hover {
+  border-color: var(--blue);
+  color: var(--blue);
+  background: var(--blue-light);
+}
+
+.board-column { position: relative; }
+
+.stage-info-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: transparent;
+}
+
+.stage-info-popover {
+  position: absolute;
+  top: 46px;
+  left: 10px;
+  right: 10px;
+  z-index: 50;
+  background: var(--white);
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  box-shadow: var(--card-shadow-hover);
+  padding: 10px 12px;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--gray-600);
+}

@@ -1,15 +1,17 @@
 import { useState } from 'react';
 import SchedulePage from './pages/SchedulePage';
 import PipelinePage from './pages/PipelinePage';
+import ClientsPage from './pages/ClientsPage';
 import TasksPage from './pages/TasksPage';
 import AnalyticsPage from './pages/AnalyticsPage';
 import LedgerPage from './pages/LedgerPage';
 
-type Tab = 'schedule' | 'pipeline' | 'tasks' | 'analytics' | 'ledger';
+type Tab = 'schedule' | 'pipeline' | 'clients' | 'tasks' | 'analytics' | 'ledger';
 
 const NAV_ITEMS: { key: Tab; label: string }[] = [
   { key: 'schedule', label: 'Schedule' },
   { key: 'pipeline', label: 'Pipeline' },
+  { key: 'clients', label: 'Clients' },
   { key: 'tasks', label: 'Tasks' },
   { key: 'analytics', label: 'Analytics' },
   { key: 'ledger', label: 'Value Ledger' },
@@ -59,6 +61,7 @@ export default function App() {
       <main className="main-content">
         {activeTab === 'schedule' && <SchedulePage />}
         {activeTab === 'pipeline' && <PipelinePage />}
+        {activeTab === 'clients' && <ClientsPage />}
         {activeTab === 'tasks' && <TasksPage />}
         {activeTab === 'analytics' && <AnalyticsPage />}
         {activeTab === 'ledger' && <LedgerPage />}

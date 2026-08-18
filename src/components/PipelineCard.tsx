@@ -8,6 +8,7 @@ export interface BoardEntry {
   last_initial: string;
   eval_date: string;
   contacted: boolean;
+  contacted_at?: string | null;
   converted: boolean | null;
   program: string | null;
   notes: string | null;
@@ -22,6 +23,16 @@ export function daysSince(dateStr: string): number {
 
 export function fmtDate(dateStr: string): string {
   return new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+/** Auto-escalating follow-up tier, anchored on contacted_at (7/14/21d ladder). */
+export function followupTier(contactedAt: string | null | undefined): { label: string; cls: string } | null {
+  if (!contactedAt) return null;
+  const d = daysSince(contactedAt.slice(0, 10));
+  if (d >= 21) return { label: 'Final attempt', cls: 'tier-final' };
+  if (d >= 14) return { label: 'Follow-up 2', cls: 'tier-2' };
+  if (d >= 7) return { label: 'Follow-up 1', cls: 'tier-1' };
+  return null;
 }
 
 interface Props {
@@ -65,6 +76,7 @@ export default function PipelineCard({ entry, stageColor, readOnly, onOpen }: Pr
         <span>Eval {fmtDate(entry.eval_date)}</span>
         {entry.converted === true && entry.program && <span className="program-pill">{entry.program}</span>}
         {entry.needs_followup && <span className="fu-pill">Follow-up</span>}
+        {(() => { const tier = followupTier(entry.contacted_at); return tier ? <span className={`tier-pill ${tier.cls}`}>{tier.label}</span> : null; })()}
       </div>
       {entry.notes && <div className="pipeline-card-notes">{entry.notes}</div>}
     </div>
