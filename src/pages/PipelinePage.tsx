@@ -21,13 +21,14 @@ interface PipelineEntry {
   needs_followup: boolean;
 }
 
-type FilterType = 'all' | 'new' | 'contacted' | 'followup' | 'converted' | 'not-converted';
+type FilterType = 'all' | 'new' | 'contacted' | 'followup' | 'converted' | 'not-converted' | 'expired';
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
 function getPipelineStage(e: PipelineEntry, _daysSince: number): string {
   if (e.converted === true) return 'converted';
   if (e.converted === false) return 'declined';
+  if (_daysSince >= 60) return 'expired';
   if (e.needs_followup) return 'followup';
   if (e.contacted && e.contacted_at) {
     const d = Math.floor((Date.now() - new Date(e.contacted_at.slice(0, 10) + 'T12:00:00').getTime()) / 86400000);
@@ -43,6 +44,7 @@ const STAGE_ORDER: Record<string, number> = {
   'followup': 2,
   'converted': 3,
   'declined': 4,
+  'expired': 5,
 };
 
 export default function PipelinePage() {
@@ -92,6 +94,7 @@ export default function PipelinePage() {
 
   /** Board drag → stage field write. Clears program whenever a card leaves converted. */
   async function updateStage(id: string, stage: StageKey) {
+    if (stage === 'expired') return; // view-derived stage — no DB write; drag out to revive
     let updates: any;
     switch (stage) {
       case 'new':
@@ -134,6 +137,7 @@ export default function PipelinePage() {
       case 'followup': return e.converted !== true && (e.needs_followup || days >= 4);
       case 'converted': return e.converted === true;
       case 'not-converted': return e.converted === false;
+      case 'expired': return e.converted === null && days >= 60;
       default: return true;
     }
   });
@@ -182,6 +186,7 @@ export default function PipelinePage() {
             { key: 'contacted' as FilterType, label: 'Contacted' },
             { key: 'followup' as FilterType, label: 'Follow-up' },
             { key: 'converted' as FilterType, label: 'Converted' },
+            { key: 'expired' as FilterType, label: 'Expired' },
           ]).map(f => (
             <button key={f.key} className={`btn btn-sm ${filter === f.key ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setFilter(f.key)}>
               {f.label}

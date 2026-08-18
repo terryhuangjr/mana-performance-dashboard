@@ -4,7 +4,7 @@ import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import PipelineCard, { daysSince } from './PipelineCard';
 import type { BoardEntry } from './PipelineCard';
 
-export type StageKey = 'new' | 'contacted-pending' | 'followup' | 'converted' | 'declined';
+export type StageKey = 'new' | 'contacted-pending' | 'followup' | 'converted' | 'declined' | 'expired';
 
 export const STAGE_COLORS: Record<StageKey, { dot: string; border: string }> = {
   'new':               { dot: '#3B82F6', border: '#3B82F6' },
@@ -12,6 +12,7 @@ export const STAGE_COLORS: Record<StageKey, { dot: string; border: string }> = {
   'followup':          { dot: '#EF4444', border: '#EF4444' },
   'converted':         { dot: '#10B981', border: '#10B981' },
   'declined':          { dot: '#9CA3AF', border: '#9CA3AF' },
+  'expired':           { dot: '#6B7280', border: '#6B7280' },
 };
 
 const COLUMNS: { key: StageKey; label: string }[] = [
@@ -20,6 +21,7 @@ const COLUMNS: { key: StageKey; label: string }[] = [
   { key: 'followup', label: 'Follow-up' },
   { key: 'converted', label: 'Converted' },
   { key: 'declined', label: 'Declined' },
+  { key: 'expired', label: 'Expired' },
 ];
 
 const STAGE_INFO: Record<StageKey, string> = {
@@ -28,11 +30,13 @@ const STAGE_INFO: Record<StageKey, string> = {
   'followup': 'Needs another nudge. Auto-escalates by time since first contact: Follow-up 1 (7-13d, amber) → Follow-up 2 (14-20d, orange) → Final attempt (21d+, red pulse). Can be flagged manually anytime.',
   'converted': 'Client signed up — program assigned. They graduate from the pipeline here.',
   'declined': 'Client said no or didn\'t move forward. Funnel closed.',
+  'expired': '60+ days since the eval and never converted — the window is closing. Still a tiny chance to win them back: drag the card back to Follow-up for a last-chance reach-out, or leave it to archive.',
 };
 
 export function getStage(entry: BoardEntry, _days: number): StageKey {
   if (entry.converted === true) return 'converted';
   if (entry.converted === false) return 'declined';
+  if (_days >= 60) return 'expired';
   if (entry.needs_followup) return 'followup';
   if (entry.contacted && entry.contacted_at && daysSince(entry.contacted_at.slice(0, 10)) >= 7) return 'followup';
   if (entry.contacted) return 'contacted-pending';
@@ -100,7 +104,7 @@ export default function PipelineBoard({ entries, readOnly, onMove, onOpen }: Pro
 
   const grouped = useMemo(() => {
     const g: Record<StageKey, BoardEntry[]> = {
-      'new': [], 'contacted-pending': [], 'followup': [], 'converted': [], 'declined': [],
+      'new': [], 'contacted-pending': [], 'followup': [], 'converted': [], 'declined': [], 'expired': [],
     };
     for (const e of entries) {
       g[getStage(e, daysSince(e.eval_date))].push(e);
