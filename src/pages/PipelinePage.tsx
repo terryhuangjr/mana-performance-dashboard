@@ -54,24 +54,35 @@ export default function PipelinePage() {
   const [currentYear, setCurrentYear] = useState(now.getFullYear());
   const [editingEntry, setEditingEntry] = useState<PipelineEntry | null>(null);
 
-  const isCurrentMonth = currentMonth === now.getMonth() + 1 && currentYear === now.getFullYear();
   const isFuture = currentYear > now.getFullYear() || (currentYear === now.getFullYear() && currentMonth > now.getMonth() + 1);
-  const isReadOnly = !isCurrentMonth && !isFuture;
 
   useEffect(() => { fetchPipeline(); }, [currentMonth, currentYear]);
 
   async function fetchPipeline() {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('mana_pipeline')
-        .select('*')
-        .eq('month', currentMonth)
-        .eq('year', currentYear)
-        .order('eval_date', { ascending: true })
-        .order('created_at', { ascending: true });
-      if (error) throw error;
-      setEntries(data || []);
+      // Open cards are pipeline-wide — they survive month rollover (only resolved
+      // cards get archived at month end). Resolved cards are shown for the
+      // selected month only (that month's record) until the archive job picks them up.
+      const [openRes, resolvedRes] = await Promise.all([
+        supabase
+          .from('mana_pipeline')
+          .select('*')
+          .is('converted', null)
+          .order('eval_date', { ascending: true })
+          .order('created_at', { ascending: true }),
+        supabase
+          .from('mana_pipeline')
+          .select('*')
+          .eq('month', currentMonth)
+          .eq('year', currentYear)
+          .not('converted', 'is', null)
+          .order('eval_date', { ascending: true })
+          .order('created_at', { ascending: true }),
+      ]);
+      if (openRes.error) throw openRes.error;
+      if (resolvedRes.error) throw resolvedRes.error;
+      setEntries([...(openRes.data || []), ...(resolvedRes.data || [])]);
     } catch (err: any) {
       console.error('Failed to load:', err);
     } finally {
@@ -148,7 +159,7 @@ export default function PipelinePage() {
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
           <h1>Pipeline</h1>
-          <p>Track eval-to-conversion progress</p>
+          <p>Track eval-to-conversion progress — open cards persist across months</p>
         </div>
       </div>
 
@@ -161,6 +172,7 @@ export default function PipelinePage() {
             {MONTHS[currentMonth - 1]} {currentYear}
           </span>
           <button className="btn btn-ghost btn-sm" onClick={() => navigateMonth(1)} disabled={isFuture && currentMonth >= now.getMonth() + 1 && currentYear >= now.getFullYear()}>→</button>
+          <span style={{ fontSize: 11, color: 'var(--gray-400)', fontStyle: 'italic' }}>all open cards shown · resolved = selected month</span>
         </div>
 
         <div style={{ display: 'flex', gap: 4 }}>
@@ -182,13 +194,13 @@ export default function PipelinePage() {
         <div className="spinner" />
       ) : filteredEntries.length === 0 ? (
         <div className="empty-state" style={{ marginTop: 24 }}>
-          <h3>No evals found</h3>
-          <p>{isReadOnly ? 'No data for this month.' : 'Add your first eval to start tracking.'}</p>
+          <h3>No clients in the pipeline</h3>
+          <p>Open cards stay on the board across months. New clients appear here once they sync from Jane.</p>
         </div>
       ) : (
         <PipelineBoard
           entries={filteredEntries}
-          readOnly={isReadOnly}
+          readOnly={false}
           onMove={async (entry, stage) => {
             await updateStage(entry.id, stage);
             if (stage === 'converted') setEditingEntry(entry);
