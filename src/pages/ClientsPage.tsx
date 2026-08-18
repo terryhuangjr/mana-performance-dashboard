@@ -16,7 +16,8 @@ interface PipelineRow {
 
 interface Client {
   code: string;
-  program: string;            // derived from appointments, or pipeline program if converted
+  program: string | null;    // REAL program name (converted assignment, pipeline + archive)
+  category: string;          // generic appointment-type fallback (Training/Rehab/etc.) when no program assigned
   visits: number;
   first_visit: string | null;
   last_visit: string | null;
@@ -55,7 +56,7 @@ export default function ClientsPage() {
   useEffect(() => {
     (async () => {
       try {
-        const [apptRes, pipeRes] = await Promise.all([
+        const [apptRes, pipeRes, archiveRes] = await Promise.all([
           supabase
             .from('mana_appointments')
             .select('patient_code, appointment_type, appointment_date, status')
@@ -64,15 +65,22 @@ export default function ClientsPage() {
             .from('mana_pipeline')
             .select('patient_code, converted, program')
             .eq('converted', true),
+          supabase
+            .from('mana_pipeline_archive')
+            .select('patient_code, converted, program')
+            .eq('converted', true),
         ]);
         if (apptRes.error) throw apptRes.error;
         if (pipeRes.error) throw pipeRes.error;
+        if (archiveRes.error) throw archiveRes.error;
 
         const appts = (apptRes.data || []) as ApptRow[];
         const pipes = (pipeRes.data || []) as PipelineRow[];
+        const archived = (archiveRes.data || []) as PipelineRow[];
         const pipeByCode = new Map<string, string>();
-        for (const p of pipes) {
-          if (p.patient_code && p.program) pipeByCode.set(p.patient_code, p.program);
+        // Active conversions win; archived conversions fill the gaps (real program names: MANA 6/10/20, BK, NAHL, Cobblestone)
+        for (const p of [...archived, ...pipes]) {
+          if (p.patient_code && p.program && !pipeByCode.has(p.patient_code)) pipeByCode.set(p.patient_code, p.program);
         }
 
         const today = new Date().toISOString().slice(0, 10);
@@ -81,7 +89,7 @@ export default function ClientsPage() {
           if (!a.patient_code) continue;
           let c = byCode.get(a.patient_code);
           if (!c) {
-            c = { code: a.patient_code, program: '—', visits: 0, first_visit: null, last_visit: null, next_visit: null, status: 'Active' };
+            c = { code: a.patient_code, program: null, category: '—', visits: 0, first_visit: null, last_visit: null, next_visit: null, status: 'Active' };
             byCode.set(a.patient_code, c);
           }
           c.visits++;
@@ -89,7 +97,8 @@ export default function ClientsPage() {
             if (!c.first_visit || a.appointment_date < c.first_visit) c.first_visit = a.appointment_date;
             if (!c.last_visit || a.appointment_date > c.last_visit) {
               c.last_visit = a.appointment_date;
-              c.program = pipeByCode.get(a.patient_code) || TYPE_PROGRAM[a.appointment_type] || '—';
+              c.program = pipeByCode.get(a.patient_code) || null;
+              c.category = TYPE_PROGRAM[a.appointment_type] || '—';
             }
           } else {
             if (!c.next_visit || a.appointment_date < c.next_visit) c.next_visit = a.appointment_date;
@@ -115,7 +124,7 @@ export default function ClientsPage() {
   }, []);
 
   const programs = useMemo(() => {
-    const s = new Set(clients.map(c => c.program).filter(p => p && p !== '—'));
+    const s = new Set(clients.map(c => c.program).filter((p): p is string => !!p));
     return [...s].sort();
   }, [clients]);
 
@@ -133,7 +142,7 @@ export default function ClientsPage() {
         case 'code':
           return a.code.localeCompare(b.code);
         case 'program':
-          return a.program.localeCompare(b.program) || a.code.localeCompare(b.code);
+          return (a.program || a.category || '').localeCompare(b.program || b.category || '') || a.code.localeCompare(b.code);
         case 'last':
           return (b.last_visit || '').localeCompare(a.last_visit || '');
         case 'next':
@@ -233,7 +242,11 @@ export default function ClientsPage() {
               borderBottom: '1px solid var(--gray-100)',
             }}>
               <span style={{ fontWeight: 700, color: 'var(--gray-800)', letterSpacing: '-0.2px' }}>{c.code}</span>
-              <span style={{ fontSize: 12, color: c.program === '—' ? 'var(--gray-400)' : 'var(--gray-700)' }}>{c.program}</span>
+              {c.program ? (
+                <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--gray-800)' }}>{c.program}</span>
+              ) : (
+                <span style={{ fontSize: 11, fontStyle: 'italic', color: 'var(--gray-400)' }}>{c.category !== '—' ? c.category : '—'}</span>
+              )}
               <span style={{ fontSize: 12, color: 'var(--gray-500)' }}>{fmtDate(c.last_visit)}</span>
               <span style={{ fontSize: 12, color: c.next_visit ? 'var(--blue-700)' : 'var(--gray-400)', fontWeight: c.next_visit ? 600 : 400 }}>{fmtDate(c.next_visit)}</span>
               <span style={{ textAlign: 'center', fontSize: 12, color: 'var(--gray-600)', fontVariantNumeric: 'tabular-nums' }}>{c.visits}</span>
