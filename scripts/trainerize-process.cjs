@@ -5,13 +5,13 @@
 // processor tokenizes client.added payloads into mana_known_patients (code only,
 // no PHI), no-ops pings, and marks every event processed so replay is safe.
 //
-// Env: VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY, MANA_KEYS_MASTER_KEY
+// Env: VITE_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, MANA_KEYS_MASTER_KEY
 // Usage: node scripts/trainerize-process.cjs
 const { createClient } = require('@supabase/supabase-js');
 const manaKeys = require('./mana-keys.cjs');
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
-const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY;
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (!SUPABASE_URL || !SUPABASE_KEY) { console.error('ERROR: Supabase env required'); process.exit(1); }
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 const keyStore = manaKeys.loadKeys();

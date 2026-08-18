@@ -4,7 +4,7 @@
  * Fetches Jane iCal feed, parses appointments, upserts into Supabase.
  *
  * Usage: node scripts/sync-ical.cjs
- * Env vars: JANE_ICAL_URL, VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY
+ * Env vars: JANE_ICAL_URL, VITE_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
  */
 
 const ical = require('node-ical');
@@ -13,7 +13,7 @@ const manaKeys = require('./mana-keys.cjs');
 
 const ICAL_URL = process.env.JANE_ICAL_URL;
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
-const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY;
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 // PHI policy: Supabase stores ONLY opaque codes (patient_code). Real identities live in the
 // encrypted key file (mana-keys.cjs). patient_name is NOT written for new rows; raw_summary
@@ -26,7 +26,7 @@ if (!ICAL_URL) {
   process.exit(1);
 }
 if (!SUPABASE_URL || !SUPABASE_KEY) {
-  console.error('ERROR: VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY required');
+  console.error('ERROR: VITE_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY required');
   process.exit(1);
 }
 
