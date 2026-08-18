@@ -824,6 +824,31 @@ select.input {
   .board-wrap { padding-bottom: 16px; }
 }
 
+/* ───── CLIENTS PAGE ───── */
+.clients-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--gray-600);
+  margin-top: 4px;
+  padding: 8px 0;
+}
+.clients-summary strong { color: var(--gray-800); font-variant-numeric: tabular-nums; }
+.clients-summary .dot-sep { color: var(--gray-300); }
+
+.clients-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+  .clients-toolbar .input { flex: 1 1 45%; max-width: none !important; }
+}
+
 /* ───── FOLLOW-UP ESCALATION TIERS ───── */
 .tier-pill {
   font-size: 10px;
