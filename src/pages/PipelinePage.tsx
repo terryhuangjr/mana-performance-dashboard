@@ -3,7 +3,6 @@ import { supabase } from '../lib/supabase';
 import HeaderStats from '../components/HeaderStats';
 import PipelineBoard from '../components/PipelineBoard';
 import type { StageKey } from '../components/PipelineBoard';
-import AddEvalModal from '../components/AddEvalModal';
 import EditEvalModal from '../components/EditEvalModal';
 
 interface PipelineEntry {
@@ -53,7 +52,6 @@ export default function PipelinePage() {
   const now = new Date();
   const [currentMonth, setCurrentMonth] = useState(now.getMonth() + 1);
   const [currentYear, setCurrentYear] = useState(now.getFullYear());
-  const [showAddModal, setShowAddModal] = useState(false);
   const [editingEntry, setEditingEntry] = useState<PipelineEntry | null>(null);
 
   const isCurrentMonth = currentMonth === now.getMonth() + 1 && currentYear === now.getFullYear();
@@ -152,11 +150,6 @@ export default function PipelinePage() {
           <h1>Pipeline</h1>
           <p>Track eval-to-conversion progress</p>
         </div>
-        {!isReadOnly && (
-          <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>
-            + Add Eval
-          </button>
-        )}
       </div>
 
       <HeaderStats totalEvals={totalEvals} convertedCount={convertedCount} conversionRate={conversionRate} needsFollowup={needsFollowup} newCount={newCount} />
@@ -202,10 +195,6 @@ export default function PipelinePage() {
           }}
           onOpen={(entry) => setEditingEntry(entry)}
         />
-      )}
-
-      {showAddModal && (
-        <AddEvalModal month={currentMonth} year={currentYear} onClose={() => setShowAddModal(false)} onSaved={() => { setShowAddModal(false); fetchPipeline(); }} />
       )}
 
       {editingEntry && (
