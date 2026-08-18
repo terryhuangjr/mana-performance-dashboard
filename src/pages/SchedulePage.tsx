@@ -112,22 +112,26 @@ export default function SchedulePage() {
     };
   });
 
-  function handlePatientClick(name: string) {
-    // Find pipeline entry for this patient
-    const nameParts = name.split(' ');
-    const firstName = nameParts[0];
+  function handlePatientClick(ref: string) {
+    // patient_code (MANA###) is the identity post-tokenization; fall back to
+    // legacy name search only for pre-tokenization rows without codes
+    const isCode = /^MANA\d+$/i.test(ref);
+    let query;
+    if (isCode) {
+      query = supabase.from('mana_pipeline').select('*').eq('patient_code', ref);
+    } else {
+      const nameParts = ref.split(' ');
+      const firstName = nameParts[0];
+      query = supabase.from('mana_pipeline').select('*').ilike('first_name', firstName);
+    }
 
-    supabase
-      .from('mana_pipeline')
-      .select('*')
-      .ilike('first_name', firstName)
-      .then(({ data }) => {
-        const pipeline = data && data.length > 0 ? data[0] as PipelineEntry : null;
-        const patientAppts = appointments.filter(a =>
-          a.patient_name?.toLowerCase().includes(firstName.toLowerCase())
-        );
-        setPatientHistory({ name, appointments: patientAppts, pipeline });
-      });
+    query.then(({ data }) => {
+      const pipeline = data && data.length > 0 ? data[0] as PipelineEntry : null;
+      const patientAppts = isCode
+        ? appointments.filter(a => a.patient_code === ref)
+        : appointments.filter(a => a.patient_name?.toLowerCase().includes(ref.toLowerCase()));
+      setPatientHistory({ name: ref, appointments: patientAppts, pipeline });
+    });
   }
 
   return (

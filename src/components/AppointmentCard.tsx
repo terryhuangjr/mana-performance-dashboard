@@ -1,5 +1,6 @@
 interface Appointment {
   id: string;
+  patient_code?: string | null;
   patient_name: string;
   appointment_type: string;
   appointment_date: string;
@@ -29,12 +30,13 @@ function formatTime(time: string): string {
 }
 
 export default function AppointmentCard({ appointment, onPatientClick }: Props) {
-  const { patient_name, appointment_type, appointment_time, duration_minutes, status, source, title } = appointment;
+  const { patient_code, patient_name, appointment_type, appointment_time, duration_minutes, status, source, title } = appointment;
   const isCancelled = status === 'cancelled';
   const isManual = source === 'manual';
   const isEval = !isManual && isEvalType(appointment_type);
 
-  const displayName = isManual ? (title || patient_name) : (patient_name || 'Unknown');
+  const displayName = isManual ? (title || patient_name) : (patient_code || patient_name || 'Unknown');
+  const patientRef = patient_code || patient_name || '';
 
   let accentColor: string;
   let badgeClass: string;
@@ -75,7 +77,7 @@ export default function AppointmentCard({ appointment, onPatientClick }: Props) 
 
       <div style={{ flex: 1, minWidth: 0 }}>
         <div
-          onClick={e => { e.stopPropagation(); if (!isManual) onPatientClick(patient_name || ''); }}
+          onClick={e => { e.stopPropagation(); if (!isManual) onPatientClick(patientRef); }}
           style={{
             fontSize: 14,
             fontWeight: 600,
